@@ -1,0 +1,303 @@
+﻿@page "/login"
+@layout LoginLayout
+@using MudBlazor
+@using WeatherWise.Client.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject ISnackbar Snackbar
+
+<div class="login-page">
+    <div class="login-container">
+        <div class="image-content">
+            <img src="/images/signin-image.jpg" alt="Sign in illustration" />
+        </div>
+
+        <div class="form-content">
+            <h1>Sign in</h1>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <MudTextField @bind-Value="email"
+                              Placeholder="Your Email"
+                              Variant="Variant.Outlined"
+                              FullWidth="true"
+                              Margin="Margin.None"
+                              OnKeyUp="HandleKeyPress" />
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="password-input-container">
+                    <MudTextField @bind-Value="password"
+                                  Placeholder="Password"
+                                  Variant="Variant.Outlined"
+                                  InputType="@passwordInputType"
+                                  FullWidth="true"
+                                  Margin="Margin.None"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@passwordIcon"
+                                  AdornmentAriaLabel="Show Password"
+                                  OnAdornmentClick="TogglePasswordVisibility"
+                                  OnKeyUp="HandleKeyPress" />
+                </div>
+            </div>
+
+            <div class="form-group remember-me">
+                <input type="checkbox" id="rememberMe" />
+                <label for="rememberMe">Remember me</label>
+            </div>
+
+            <div class="form-group">
+                <button class="login-button" @onclick="HandleLogin">Log in</button>
+            </div>
+           
+            <button class="create-account" @onclick="NavigateToRegistration">Create an account</button>
+
+            <div class="social-login">
+                <p>Or login with</p>
+                <div class="social-icons">
+                    <a href="#" class="social-icon facebook">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg" alt="Facebook" />
+                    </a>
+                    <a href="#" class="social-icon twitter">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/b/b7/X_logo.jpg" alt="Twitter" />
+                    </a>
+                    <a href="#" class="social-icon google">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" />
+                    </a>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="error-message">@errorMessage</div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string email = "";
+    private string password = "";
+    private string errorMessage = "";
+    private bool passwordVisible = false;
+    private InputType passwordInputType = InputType.Password;
+    private string passwordIcon = Icons.Material.Filled.VisibilityOff;
+
+    private void NavigateToRegistration()
+    {
+        Navigation.NavigateTo("/register");
+    }
+    
+    private void NavigateToForgotPassword()
+    {
+        Navigation.NavigateTo("/forgot-password");
+    }
+
+    private async Task HandleLogin()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(email) || !email.Contains("@") || !email.Contains("."))
+            {
+                Snackbar.Add("Please enter a valid email address", Severity.Error);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                Snackbar.Add("Please enter your password", Severity.Error);
+                return;
+            }
+
+            var result = await AuthService.Login(email, password);
+            if (result != null)
+            {
+                Snackbar.Add("Login successful! Redirecting...", Severity.Success);
+                Navigation.NavigateTo("/Weather", forceLoad: true);
+            }
+            else
+            {
+                Snackbar.Add("Invalid credentials", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Login failed: " + ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await HandleLogin();
+        }
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        passwordVisible = !passwordVisible;
+        passwordInputType = passwordVisible ? InputType.Text : InputType.Password;
+        passwordIcon = passwordVisible ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff;
+    }
+}
+
+<style>
+    .login-page {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #f9f9f9;
+        font-family: 'Segoe UI', sans-serif;
+    }
+
+    .login-container {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        max-width: 900px;
+        width: 100%;
+    }
+
+    .image-content {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+        .image-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+        }
+
+    .form-content {
+        flex: 1;
+        padding-left: 2rem;
+    }
+
+        .form-content h1 {
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            color: #333;
+        }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+
+    .password-input-container {
+        position: relative;
+    }
+
+    .form-group.remember-me {
+        display: flex;
+        align-items: center;
+    }
+
+        .form-group.remember-me label {
+            font-size: 0.9rem;
+            color: #555;
+            margin-left: 0.5rem;
+        }
+
+    .login-button {
+        width: 100%;
+        padding: 0.8rem;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+        .login-button:hover {
+            background-color: #0056b3;
+        }
+
+    .create-account {
+        display: block;
+        margin-top: 1rem;
+        text-align: center;
+        font-size: 0.9rem;
+        color: #555;
+        text-decoration: none;
+        background: none;
+        border: none;
+        cursor: pointer;
+    }
+
+        .create-account:hover {
+            text-decoration: underline;
+        }
+
+    .social-login {
+        margin-top: 1.5rem;
+        text-align: center;
+    }
+
+        .social-login p {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+    .social-icons {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .social-icon img {
+        width: 30px;
+        height: 30px;
+        cursor: pointer;
+        transition: transform 0.3s ease;
+    }
+
+        .social-icon img:hover {
+            transform: scale(1.1);
+        }
+
+    .error-message {
+        margin-top: 1rem;
+        padding: 0.8rem;
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+        border-radius: 5px;
+        font-size: 0.9rem;
+    }
+
+    @@media (max-width: 768px) {
+        .login-container {
+            flex-direction: column;
+            padding: 1.5rem;
+        }
+
+        .image-content {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-content {
+            padding-left: 0;
+        }
+    }
+</style>

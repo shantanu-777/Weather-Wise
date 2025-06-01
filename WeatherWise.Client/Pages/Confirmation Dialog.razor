@@ -1,0 +1,27 @@
+﻿@namespace WeatherWise.Client.Shared
+@inherits ComponentBase
+@using MudBlazor
+@using MudBlazor.Dialog
+@using System.Threading.Tasks
+@inject NavigationManager Navigation
+
+
+<MudDialog Class="confirmation-dialog">
+    <DialogContent>
+        <MudText>@ContentText</MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text" Color="Color.Default" Size="Size.Small">CANCEL</MudButton>
+        <MudButton OnClick="Submit" Variant="Variant.Filled" Color="@Color" Size="Size.Small">@ButtonText</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    [Parameter] public string ContentText { get; set; }
+    [Parameter] public string ButtonText { get; set; }
+    [Parameter] public Color Color { get; set; }
+
+    void Submit() => MudDialog.Close(DialogResult.Ok(true));
+    void Cancel() => MudDialog.Cancel();
+}

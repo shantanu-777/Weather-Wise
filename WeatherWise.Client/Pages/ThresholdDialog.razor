@@ -1,0 +1,72 @@
+﻿@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Customize Weather Alert Thresholds</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="HighTempThreshold"
+                      Label="High Temperature Threshold (°C)"
+                      Variant="Variant.Outlined"
+                      Class="mb-4"
+                      T="double"
+                      InputType="InputType.Number" />
+        <MudTextField @bind-Value="LowTempThreshold"
+                      Label="Low Temperature Threshold (°C)"
+                      Variant="Variant.Outlined"
+                      Class="mb-4"
+                      T="double"
+                      InputType="InputType.Number" />
+        <MudTextField @bind-Value="WindSpeedThreshold"
+                      Label="Wind Speed Threshold (km/h)"
+                      Variant="Variant.Outlined"
+                      Class="mb-4"
+                      T="double"
+                      InputType="InputType.Number" />
+        <MudTextField @bind-Value="HumidityThreshold"
+                      Label="Humidity Threshold for Rain Alert (%)"
+                      Variant="Variant.Outlined"
+                      T="double"
+                      InputType="InputType.Number" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Color="Color.Default">Cancel</MudButton>
+        <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+
+    [Parameter] public double HighTempThreshold { get; set; }
+    [Parameter] public double LowTempThreshold { get; set; }
+    [Parameter] public double WindSpeedThreshold { get; set; }
+    [Parameter] public double HumidityThreshold { get; set; }
+
+    public class Thresholds
+    {
+        public double HighTempThreshold { get; set; }
+        public double LowTempThreshold { get; set; }
+        public double WindSpeedThreshold { get; set; }
+        public double HumidityThreshold { get; set; }
+    }
+
+    private void Submit()
+    {
+        Console.WriteLine("Submit button clicked.");
+        var thresholds = new Thresholds
+            {
+                HighTempThreshold = HighTempThreshold,
+                LowTempThreshold = LowTempThreshold,
+                WindSpeedThreshold = WindSpeedThreshold,
+                HumidityThreshold = HumidityThreshold
+            };
+        MudDialog.Close(DialogResult.Ok(thresholds));
+    }
+
+    private void Cancel()
+    {
+        Console.WriteLine("Cancel button clicked.");
+        MudDialog.Cancel();
+    }
+}

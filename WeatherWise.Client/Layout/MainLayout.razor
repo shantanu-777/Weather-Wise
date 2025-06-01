@@ -1,0 +1,136 @@
+﻿@inherits LayoutComponentBase
+@using MudBlazor
+@using Blazored.LocalStorage
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject ILocalStorageService LocalStorage
+@inject IDialogService DialogService
+
+<MudThemeProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<AuthorizeView>
+    <Authorizing>
+        <MudProgressCircular Indeterminate="true" />
+    </Authorizing>
+    <NotAuthorized>
+        <RedirectToLogin />
+    </NotAuthorized>
+    <Authorized>
+        @if (authChecked)
+        {
+            <MudLayout>
+                <MudSpacer />
+
+                <div class="layout-container, @backgroundClass">
+                    @* Sidebar *@
+                    <NavMenu />
+
+                    @* Main Content Area *@
+                    <div Class="main-content-wrapper, @backgroundClass">
+                        <div class="main-content-container">
+                            @Body
+                        </div>
+                    </div>
+                </div>
+            </MudLayout>
+        }
+        else
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+    </Authorized>
+</AuthorizeView>
+
+<style>
+    .layout-container {
+        display: flex; 
+        height: calc(100vh - 64px);
+        background-color: transparent;
+    }
+
+    .main-content-wrapper {
+        flex-grow: 1;
+        display: flex;
+        padding: 0;
+        overflow: auto;
+        background-color: transparent;
+    }
+
+    .main-content-container {
+        width: 100%;
+        background-color: transparent;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: auto;
+    }
+</style>
+
+@code {
+    private bool authChecked = false;
+ private string backgroundClass = "weather-bg-default";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authResult = await AuthService.CheckAuth();
+            if (authResult == null)
+            {
+                Navigation.NavigateTo("/Home");
+            }
+        }
+        catch (Exception ex)
+        {
+            Navigation.NavigateTo("/login");
+        }
+        finally
+        {
+            authChecked = true;
+        }
+    }
+    private void UpdateBackground(string weatherCondition)
+{
+    if (string.IsNullOrEmpty(weatherCondition))
+    {
+        backgroundClass = "weather-bg-default";
+        return;
+    }
+
+    weatherCondition = weatherCondition.ToLower();
+    
+    if (weatherCondition.Contains("clear"))
+    {
+        backgroundClass = "weather-bg-clear";
+    }
+    else if (weatherCondition.Contains("cloud"))
+    {
+        backgroundClass = "weather-bg-clouds";
+    }
+    else if (weatherCondition.Contains("rain"))
+    {
+        backgroundClass = "weather-bg-rain";
+    }
+    else if (weatherCondition.Contains("thunder") || weatherCondition.Contains("storm"))
+    {
+        backgroundClass = "weather-bg-thunderstorm";
+    }
+    else if (weatherCondition.Contains("snow"))
+    {
+        backgroundClass = "weather-bg-snow";
+    }
+    else if (weatherCondition.Contains("mist") || weatherCondition.Contains("fog"))
+    {
+        backgroundClass = "weather-bg-mist";
+    }
+    else
+    {
+        backgroundClass = "weather-bg-default";
+    }
+    
+    StateHasChanged();
+}
+
+}

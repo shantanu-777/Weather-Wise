@@ -1,0 +1,48 @@
+using MudBlazor;
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+
+
+<MudDialog>
+    <TitleContent>
+        <div class="d-flex justify-between items-center w-full">
+            <MudText Typo="Typo.h6">Add @CityName to Favorites</MudText>
+            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                           Color="Color.Default"
+                           Size="Size.Small"
+                           OnClick="Close" />
+        </div>
+    </TitleContent>
+
+    <DialogContent>
+        <MudTextField @bind-Value="Note"
+                      Label="Add a note (optional)"
+                      Variant="Variant.Outlined"
+                      FullWidth="true" />
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="@Cancel" Color="Color.Default">Cancel</MudButton>
+        <MudButton OnClick="@Submit" Color="Color.Primary">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+
+    [Parameter] public string CityName { get; set; }
+    public string Note { get; set; }
+
+    void Close() => MudDialog.Cancel();
+
+    void Cancel()
+    {
+        Console.WriteLine("Cancel clicked.");
+        MudDialog.Cancel();
+    }
+
+    void Submit()
+    {
+        Console.WriteLine("Save clicked.");
+        MudDialog.Close(DialogResult.Ok(Note));
+    }
+}

@@ -1,0 +1,162 @@
+﻿@page "/favorites"
+@using WeatherWise.Client.Models
+@using WeatherWise.Client.Services
+@inject IFavoriteCityService FavoriteCityService
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-12 px-4">
+    <MudText Typo="Typo.h4" Class="mb-6" Style="color: black;">Your Favorite Cities</MudText>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-center my-10">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+        </div>
+    }
+    else if (!isAuthenticated)
+    {
+        <MudText Typo="Typo.h6" Style="color: black;" Class="mt-10 text-center">Please log in to view your favorite cities.</MudText>
+    }
+    else if (!favoriteCities.Any())
+    {
+        <MudText Typo="Typo.h6" Style="color: black;" Class="mt-10 text-center">You don't have any favorite cities yet.</MudText>
+    }
+    else
+    {
+        <MudGrid GutterSize="3">
+            @foreach (var city in favoriteCities)
+            {
+                <MudItem xs="12" sm="6">
+                    <MudExpansionPanels Elevation="3" Class="favorite-expansion" Style="color: black;">
+                        <MudExpansionPanel Text="@city.CityName" TextTypography="Typo.h6" DisableRipple="true">
+                            <MudGrid GutterSize="2" Class="pt-2">
+                                <MudItem xs="12">
+                                    <MudText><b>Added On:</b> @city.AddedDate.ToLocalTime().ToString("MM/dd/yyyy")</MudText>
+                                </MudItem>
+                                <MudItem xs="12" Class="d-flex justify-end">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Search"
+                                                   Size="Size.Small"
+                                                   Color="Color.Primary"
+                                                   OnClick="() => ViewWeatherForCity(city.CityName)"
+                                                   Disabled="@isProcessing"
+                                                   Title="Search weather" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                   Size="Size.Small"
+                                                   Color="Color.Error"
+                                                   OnClick="() => RemoveFavoriteAsync(city)"
+                                                   Disabled="@isProcessing"
+                                                   Title="Remove from favorites" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudExpansionPanel>
+                    </MudExpansionPanels>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+</MudContainer>
+
+<style>
+    .favorite-expansion .mud-expansion-panel-header {
+        background-color: #fafafa;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        color: black !important;
+    }
+
+    .favorite-expansion .mud-expansion-panel-content {
+        padding-top: 10px;
+        color: black !important;
+    }
+
+    ::deep(.mud-icon-button svg) {
+        color: black;
+    }
+</style>
+
+@code {
+    private List<FavoriteCity> favoriteCities = new();
+    private bool isLoading = true;
+    private bool isProcessing = false;
+    private bool isAuthenticated = false;
+    private string userId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetUserInfoAndLoadFavoritesAsync();
+    }
+
+    private async Task GetUserInfoAndLoadFavoritesAsync()
+    {
+        try
+        {
+            isLoading = true;
+
+            var authCheckResponse = await AuthService.CheckAuth();
+            isAuthenticated = authCheckResponse != null;
+
+            if (isAuthenticated && authCheckResponse != null)
+            {
+                userId = authCheckResponse.Id;
+
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    await LoadFavoriteCitiesAsync();
+                }
+                else
+                {
+                    Snackbar.Add("Unable to identify user. Please try logging in again.", Severity.Warning);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading user information: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadFavoriteCitiesAsync()
+    {
+        try
+        {
+            favoriteCities = await FavoriteCityService.GetUserFavoriteCitiesAsync(userId);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading favorite cities: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task RemoveFavoriteAsync(FavoriteCity city)
+    {
+        try
+        {
+            isProcessing = true;
+            await FavoriteCityService.RemoveFromFavoritesAsync(city.Id, userId);
+            favoriteCities.Remove(city);
+            Snackbar.Add($"{city.CityName} removed from favorites", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error removing city: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ViewWeatherForCity(string cityName)
+    {
+        var encodedCityName = Uri.EscapeDataString(cityName);
+        NavigationManager.NavigateTo($"/home?city={encodedCityName}");
+    }
+}

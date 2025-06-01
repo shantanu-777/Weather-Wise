@@ -1,0 +1,133 @@
+﻿@page "/history"
+@using WeatherWise.Client.Services
+@inject UserHistoryService UserHistoryService
+@inject AuthService AuthService
+@using WeatherWise.Client.Models
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-12 px-4">
+    <MudText Typo="Typo.h4" Class="mb-6" Style="color: black;">Search History</MudText>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-center my-10">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+        </div>
+    }
+    else if (userHistory != null && userHistory.Any())
+    {
+        <MudGrid GutterSize="3">
+            @foreach (var item in userHistory)
+            {
+                <MudItem xs="12" sm="6">
+                    <MudExpansionPanels Elevation="3" Class="history-expansion" Style="color: black;">
+                        <MudExpansionPanel Text="@item.CityName" TextTypography="Typo.h6" DisableRipple="true">
+                            <MudGrid GutterSize="2" Class="pt-2">
+                                <MudItem xs="6">
+                                    <MudText><b>Temperature:</b> @item.Temperature °C</MudText>
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudText><b>Humidity:</b> @item.Humidity %</MudText>
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudText><b>Wind Speed:</b> @item.WindSpeed km/h</MudText>
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudText><b>Condition:</b> @item.WeatherCondition</MudText>
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudText><b>Timestamp:</b> @item.Timestamp.ToLocalTime().ToString("g")</MudText>
+                                </MudItem>
+                                <MudItem xs="12" Class="d-flex justify-end">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                   Color="Color.Error"
+                                                   OnClick="() => DeleteHistory(item.Id)"
+                                                   Title="Delete this history entry" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudExpansionPanel>
+                    </MudExpansionPanels>
+                </MudItem>
+            }
+        </MudGrid>
+
+        <div class="d-flex justify-center mt-6">
+            <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="ClearHistory" StartIcon="@Icons.Material.Filled.DeleteSweep">
+                Clear All History
+            </MudButton>
+        </div>
+    }
+    else
+    {
+        <MudText Typo="Typo.h6" Style="color: black;" Class="mt-10 text-center">No search history available.</MudText>
+    }
+</MudContainer>
+
+<style>
+    .history-expansion .mud-expansion-panel-header {
+        background-color: #fafafa;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        color: black !important;
+    }
+    .history-expansion .mud-expansion-panel-content {
+        padding-top: 10px;
+        color: black !important;
+    }
+</style>
+
+@code {
+    private List<UserSearchHistory> userHistory;
+    private string UserId;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHistory();
+    }
+
+    private async Task LoadHistory()
+    {
+        isLoading = true;
+        try
+        {
+            var authCheckResponse = await AuthService.CheckAuth();
+            if (authCheckResponse != null)
+            {
+                UserId = authCheckResponse.Id;
+                userHistory = await UserHistoryService.GetUserHistory(UserId);
+            }
+            else
+            {
+                userHistory = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading history: {ex.Message}");
+            userHistory = null;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task DeleteHistory(string historyId)
+    {
+        if (UserId != null)
+        {
+            await UserHistoryService.DeleteSearchHistory(historyId, UserId);
+            await LoadHistory();
+        }
+    }
+
+    private async Task ClearHistory()
+    {
+        if (UserId != null)
+        {
+            await UserHistoryService.ClearAllUserSearchHistory(UserId);
+            await LoadHistory();
+        }
+    }
+}

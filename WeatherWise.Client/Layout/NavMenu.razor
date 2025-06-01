@@ -1,0 +1,561 @@
+﻿@inject NavigationManager Navigation
+@inject WeatherAlertService WeatherAlertService
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+
+@using WeatherWise.Client.Shared
+@using System.Diagnostics
+
+
+<MudThemeProvider />
+<MudDialogProvider />
+
+
+<div class="top-navbar">
+    <div class="navbar-left">
+        <div class="app-logo">
+            <MudIcon Icon="@Icons.Material.Filled.WbSunny" Size="Size.Medium" />
+            <span>WeatherWise</span>
+        </div>
+    </div>
+
+    <div class="navbar-links">
+        <MudNavLink Href="/Weather" Icon="@Icons.Material.Filled.Cloud" Class="nav-item">
+            Weather
+        </MudNavLink>
+        <MudNavLink Href="/favorites" Icon="@Icons.Material.Filled.Favorite" Class="nav-item">
+            Favorites
+        </MudNavLink>
+        <MudNavLink Href="/history" Icon="@Icons.Material.Filled.History" Class="nav-item">
+            History
+        </MudNavLink>
+
+        <!-- Thresholds Button with Popover -->
+        <div class="threshold-menu-container">
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Default"
+                       StartIcon="@Icons.Material.Filled.Settings"
+                       Class="nav-item"
+                       OnClick="@(() => TogglePopover(ref isThresholdMenuOpen))">
+                Thresholds
+            </MudButton>
+
+            @if (isThresholdMenuOpen)
+            {
+                <MudPaper Class="threshold-popover" Elevation="4">
+                    <div class="popover-header">
+                        <MudText Typo="Typo.h6">Alert Thresholds</MudText>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                       Size="Size.Small"
+                                       Color="Color.Default"
+                                       OnClick="@(() => isThresholdMenuOpen = false)" />
+                    </div>
+                    <MudDivider />
+                    <div class="popover-content">
+                        <div class="threshold-field">
+                            <MudText>High Temperature (°C)</MudText>
+                            <MudNumericField @bind-Value="highTempThreshold"
+                                             Min="0"
+                                             Max="60"
+                                             HideSpinButtons="false"
+                                             Adornment="Adornment.End"
+                                             AdornmentIcon="@Icons.Material.Filled.Thermostat" />
+                        </div>
+                        <div class="threshold-field">
+                            <MudText>Low Temperature (°C)</MudText>
+                            <MudNumericField @bind-Value="lowTempThreshold"
+                                             Min="-50"
+                                             Max="30"
+                                             HideSpinButtons="false"
+                                             Adornment="Adornment.End"
+                                             AdornmentIcon="@Icons.Material.Filled.AcUnit" />
+                        </div>
+                        <div class="threshold-field">
+                            <MudText>Wind Speed (km/h)</MudText>
+                            <MudNumericField @bind-Value="windSpeedThreshold"
+                                             Min="0"
+                                             Max="200"
+                                             HideSpinButtons="false"
+                                             Adornment="Adornment.End"
+                                             AdornmentIcon="@Icons.Material.Filled.Air" />
+                        </div>
+                        <div class="threshold-field">
+                            <MudText>Humidity for Rain Alert (%)</MudText>
+                            <MudNumericField @bind-Value="humidityThreshold"
+                                             Min="0"
+                                             Max="100"
+                                             HideSpinButtons="false"
+                                             Adornment="Adornment.End"
+                                             AdornmentIcon="@Icons.Material.Filled.WaterDrop" />
+                        </div>
+                    </div>
+                    <MudDivider />
+                    <div class="popover-actions">
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Default"
+                                   OnClick="@(() => isThresholdMenuOpen = false)">
+                            CANCEL
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   OnClick="SaveAndCloseThresholds">
+                            SAVE
+                        </MudButton>
+                    </div>
+                </MudPaper>
+            }
+        </div>
+    </div>
+
+    <div class="navbar-right">
+        <!-- Notification Button with Popover -->
+        <div class="notification-container">
+            <MudIconButton Icon="@Icons.Material.Filled.Notifications"
+                           Class="action-button"
+                           Color="@(WeatherAlertService.Alerts.Any() ? Color.Warning : Color.Default)"
+                           OnClick="@(() => TogglePopover(ref isNotificationMenuOpen))">
+                @if (WeatherAlertService.Alerts.Any())
+                {
+                    <MudBadge Content="@WeatherAlertService.Alerts.Count"
+                              Color="Color.Error"
+                              Overlap="true"
+                              Class="notification-badge" />
+                }
+            </MudIconButton>
+
+            @if (isNotificationMenuOpen)
+            {
+                <MudPaper Class="notification-popover" Elevation="4">
+                    <div class="popover-header">
+                        <MudText Typo="Typo.subtitle1"><strong>Weather Alerts</strong></MudText>
+                        @if (WeatherAlertService.Alerts.Any())
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                           Size="Size.Small"
+                                           Color="Color.Default"
+                                           OnClick="@(() => isNotificationMenuOpen = false)" />
+                        }
+                        else
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                           Size="Size.Small"
+                                           Color="Color.Default"
+                                           OnClick="@(() => isNotificationMenuOpen = false)" />
+                        }
+                    </div>
+                    <MudDivider />
+                    <div class="alerts-container">
+                        @if (!WeatherAlertService.Alerts.Any())
+                        {
+                            <div class="empty-alerts">
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                         Color="Color.Success"
+                                         Size="Size.Large" />
+                                <MudText Align="Align.Center">No active alerts</MudText>
+                            </div>
+                        }
+                        else
+                        {
+                            @foreach (var alert in WeatherAlertService.Alerts)
+                            {
+                                <div class="alert-item">
+                                    <div class="alert-content">
+                                        <MudIcon Icon="@GetSeverityIcon(alert.Severity)"
+                                                 Color="@GetSeverityColor(alert.Severity)"
+                                                 Size="Size.Small" />
+                                        <div class="alert-text">
+                                            <MudText Typo="Typo.body2">@alert.Message</MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                @alert.Timestamp.ToString("HH:mm")
+                                            </MudText>
+                                        </div>
+                                    </div>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                                   Size="Size.Small"
+                                                   OnClick="@(() => RemoveAlert(alert))" />
+                                </div>
+                            }
+                        }
+                    </div>
+                </MudPaper>
+            }
+        </div>
+
+        <!-- Profile Button with Popover -->
+        <div class="profile-container">
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.AccountCircle"
+                       Class="profile-button"
+                       OnClick="@ToggleProfilePopover">
+                Profile
+            </MudButton>
+
+            @if (isProfileMenuOpen)
+            {
+                <MudPaper Class="profile-popover" Elevation="4">
+                    <MudList Dense="true">
+                        <MudListItem Icon="@Icons.Material.Filled.Person"
+                                     OnClick="@(() => { OpenProfileDialog(); isProfileMenuOpen = false; })">
+                            My Profile
+                        </MudListItem>
+                  
+                        <MudDivider />
+                        <MudListItem Icon="@Icons.Material.Filled.Logout"
+                                     IconColor="Color.Error"
+                                     OnClick="@SignOut">
+                            Sign Out
+                        </MudListItem>
+                    </MudList>
+                </MudPaper>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .top-navbar {
+        width: 100%;
+        height: 64px;
+        background-color: #ffffff;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        overflow: visible;
+    }
+
+    .navbar-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .app-logo {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        font-size: 18px;
+    }
+
+    .navbar-links {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .navbar-right {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .nav-item {
+        padding: 6px 12px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        transition: background-color 0.2s ease;
+    }
+
+        .nav-item:hover {
+            background-color: rgba(0, 0, 0, 0.04);
+        }
+
+    .menu-button, .action-button {
+        border-radius: 50%;
+        min-width: 40px;
+        width: 40px;
+        height: 40px;
+        transition: background-color 0.2s ease;
+    }
+
+        .menu-button:hover, .action-button:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+    .notification-badge {
+        position: absolute;
+        top: 0;
+        right: 0;
+    }
+
+    .threshold-menu-container,
+    .notification-container,
+    .profile-container {
+        position: relative;
+    }
+
+    .threshold-popover,
+    .notification-popover,
+    .profile-popover {
+        position: absolute;
+        top: 60px;
+        right: 0;
+        background-color: white;
+        border-radius: 8px;
+        z-index: 5000;
+        min-width: 200px;
+        padding: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        display: block !important;
+        visibility: visible !important;
+    }
+
+    .threshold-popover {
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        min-width: 300px;
+    }
+
+    .notification-popover {
+        min-width: 320px;
+    }
+
+    .popover-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+    }
+
+    .popover-content {
+        padding: 12px;
+    }
+
+    .popover-actions {
+        display: flex;
+        justify-content: flex-end;
+        padding: 8px 12px;
+        gap: 8px;
+    }
+
+    .threshold-field {
+        margin-bottom: 12px;
+    }
+
+        .threshold-field:last-child {
+            margin-bottom: 0;
+        }
+
+    .alerts-container {
+        max-height: 300px;
+        overflow-y: auto;
+        padding: 8px 0;
+    }
+
+    .empty-alerts {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        gap: 8px;
+    }
+
+    .alert-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .alert-content {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .alert-text {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .profile-button {
+        padding: 6px 12px;
+        border-radius: 4px;
+        transition: box-shadow 0.2s ease;
+    }
+
+        .profile-button:hover {
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+</style>
+
+@code {
+    private double highTempThreshold = 40.0;
+    private double lowTempThreshold = 0.0;
+    private double windSpeedThreshold = 60.0;
+    private double humidityThreshold = 90.0;
+
+    private bool isThresholdMenuOpen = false;
+    private bool isNotificationMenuOpen = false;
+    private bool isProfileMenuOpen = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadThresholds();
+        WeatherAlertService.OnAlertsChanged += async () => await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadThresholds()
+    {
+        try
+        {
+            highTempThreshold = await LocalStorage.GetItemAsync<double>("HighTempThreshold") != 0
+                ? await LocalStorage.GetItemAsync<double>("HighTempThreshold")
+                : 40.0;
+            lowTempThreshold = await LocalStorage.GetItemAsync<double>("LowTempThreshold") != 0
+                ? await LocalStorage.GetItemAsync<double>("LowTempThreshold")
+                : 0.0;
+            windSpeedThreshold = await LocalStorage.GetItemAsync<double>("WindSpeedThreshold") != 0
+                ? await LocalStorage.GetItemAsync<double>("WindSpeedThreshold")
+                : 60.0;
+            humidityThreshold = await LocalStorage.GetItemAsync<double>("HumidityThreshold") != 0
+                ? await LocalStorage.GetItemAsync<double>("HumidityThreshold")
+                : 90.0;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading thresholds: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SaveThresholds()
+    {
+        try
+        {
+            await LocalStorage.SetItemAsync("HighTempThreshold", highTempThreshold);
+            await LocalStorage.SetItemAsync("LowTempThreshold", lowTempThreshold);
+            await LocalStorage.SetItemAsync("WindSpeedThreshold", windSpeedThreshold);
+            await LocalStorage.SetItemAsync("HumidityThreshold", humidityThreshold);
+            Snackbar.Add("Thresholds saved successfully.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error saving thresholds: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SaveAndCloseThresholds()
+    {
+        await SaveThresholds();
+        isThresholdMenuOpen = false;
+    }
+
+    private void TogglePopover(ref bool isOpen)
+    {
+        if (!isOpen)
+        {
+            isThresholdMenuOpen = false;
+            isNotificationMenuOpen = false;
+            isProfileMenuOpen = false;
+        }
+        isOpen = !isOpen;
+        Debug.WriteLine($"Popover toggled: Threshold={isThresholdMenuOpen}, Notification={isNotificationMenuOpen}, Profile={isProfileMenuOpen}");
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleProfilePopover()
+    {
+        if (!isProfileMenuOpen)
+        {
+            isThresholdMenuOpen = false;
+            isNotificationMenuOpen = false;
+            isProfileMenuOpen = false;
+        }
+        isProfileMenuOpen = !isProfileMenuOpen;
+        Debug.WriteLine($"Profile popover toggled: {isProfileMenuOpen}");
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OpenProfileDialog()
+    {
+        var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.ExtraSmall,
+                FullWidth = true,
+                CloseOnEscapeKey = true
+            };
+        var dialog = DialogService.Show<ProfileDialog>("User Profile", options);
+        _ = HandleDialogResult(dialog);
+    }
+
+    private void SignOut()
+    {
+        isProfileMenuOpen = false; // Close the popover
+        Navigation.NavigateTo("/login"); // Navigate to login page
+        Debug.WriteLine("Sign out triggered, navigating to /login");
+    }
+
+    private async Task HandleDialogResult(IDialogReference dialog)
+    {
+        var result = await dialog.Result;
+        if (result.Canceled)
+        {
+            Snackbar.Add("Profile dialog was canceled.", Severity.Info);
+        }
+        else
+        {
+            var profile = result.Data as ProfileDialog.UserProfile;
+            if (profile != null)
+            {
+                Snackbar.Add($"Profile updated: ID: {profile.Name}, Email: {profile.Email}", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Profile dialog closed.");
+            }
+        }
+    }
+
+    private Color GetSeverityColor(Severity severity) => severity switch
+    {
+        Severity.Error => Color.Error,
+        Severity.Warning => Color.Warning,
+        Severity.Info => Color.Info,
+        _ => Color.Default
+    };
+
+    private string GetSeverityIcon(Severity severity) => severity switch
+    {
+        Severity.Error => Icons.Material.Filled.ErrorOutline,
+        Severity.Warning => Icons.Material.Filled.Warning,
+        Severity.Info => Icons.Material.Filled.Info,
+        _ => Icons.Material.Filled.CheckCircle
+    };
+
+    private void RemoveAlert(WeatherAlert alert)
+    {
+        WeatherAlertService.RemoveAlert(alert);
+    }
+
+    private void ClearAlerts()
+    {
+        WeatherAlertService.ClearAlerts();
+    }
+
+    [JSInvokable]
+    public void ClosePopovers()
+    {
+        isThresholdMenuOpen = false;
+        isNotificationMenuOpen = false;
+        isProfileMenuOpen = false;
+        Debug.WriteLine("All popovers closed via JS");
+        StateHasChanged();
+    }
+}

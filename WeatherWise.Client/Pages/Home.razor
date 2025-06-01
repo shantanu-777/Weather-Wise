@@ -1,0 +1,889 @@
+﻿@page "/Home"
+@layout LoginLayout
+@using WeatherWise.Client.Models
+@using WeatherWise.Client.Services
+@using MudBlazor
+@inject WeatherService WeatherService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject ISnackbar Snackbar
+
+<div class="weather-app">
+    <!-- Animated Background -->
+    <div class="background-animation">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
+    <!-- Glassmorphism Header -->
+    <header class="app-header">
+        <div class="header-content">
+            <div class="brand-container">
+               <MudIcon Icon="@Icons.Material.Filled.WbSunny" Class="title-icon" />
+                <h1 class="app-title">
+                    WeatherWise
+                </h1>
+            </div>
+            <div class="action-buttons">
+                <MudButton Variant="Variant.Outlined" 
+                          Color="Color.Inherit"
+                          EndIcon="@Icons.Material.Filled.Login"
+                          OnClick="NavigateToLogin"
+                          Class="sign-in-btn">
+                    Sign In
+                </MudButton>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <!-- Floating Search Bar -->
+        <div class="search-container">
+    <MudTextField @bind-Value="searchQuery"
+                 Variant="Variant.Outlined"
+                 Placeholder="Search city..."
+                 Adornment="Adornment.End"
+                 AdornmentIcon="@Icons.Material.Filled.Search"
+                 IconColor="Color.Primary"
+                 Class="search-field"
+                 Immediate="true"
+                 OnAdornmentClick="SearchCity">
+        <Adornment>
+            <MudIconButton Icon="@Icons.Material.Filled.MyLocation" 
+                          OnClick="GetCurrentLocationWeather"
+                          Color="Color.Primary"
+                          Class="location-btn" />
+        </Adornment>
+    </MudTextField>
+    <MudText Typo="Typo.caption" Class="mt-1" Style="color: var(--text-primary); text-align: right;">
+        Searches remaining: @(MaxGuestSearches - guestSearchCount)
+    </MudText>
+</div>
+
+        <!-- Top Cities Weather -->
+        <div class="top-cities-container">
+            <h3 class="section-title">Global Cities</h3>
+            <div class="top-cities-grid">
+                @if (TopCitiesWeather != null)
+                {
+                    @foreach (var city in TopCitiesWeather)
+                    {
+                        <div class="city-card glass-card" @onclick="() => LoadCityWeather(city.City)">
+                            <div class="city-card-content">
+                                <div class="city-name">@city.City</div>
+                                <div class="city-weather">
+                                    <span class="weather-emoji">@GetWeatherEmoji(city.Weather)</span>
+                                    <span class="city-temp">@city.Temperature</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else if (IsLoadingCities)
+                {
+                    <div class="loading-cities glass-card">
+                        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="@Size.Small" />
+                        <span>Loading cities...</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (CurrentWeather != null)
+        {
+            <!-- Current Weather Card -->
+            <div class="current-weather">
+                <div class="weather-card glass-card">
+                    <div class="location-time">
+                        <h2 class="city">@CurrentWeather.City</h2>
+                        <p class="date">@DateTime.Now.ToString("dddd, MMMM dd")</p>
+                    </div>
+                    
+                    <div class="weather-main">
+                        <div class="temperature-display">
+                            <span class="temp-value">@CurrentWeather.Temperature</span>
+                           
+                        </div>
+                        <div class="weather-condition">
+                            <span class="weather-emoji">@GetWeatherEmoji(CurrentWeather.Weather)</span>
+                            <span class="weather-desc">@CurrentWeather.Weather</span>
+                        </div>
+                    </div>
+                    
+                    <div class="weather-details">
+                        <div class="detail-item">
+                            <MudIcon Icon="@Icons.Material.Filled.WaterDrop" Class="detail-icon" />
+                            <div class="detail-text">
+                                <span class="detail-label">Humidity</span>
+                                <span class="detail-value">@CurrentWeather.Humidity%</span>
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <MudIcon Icon="@Icons.Material.Filled.Air" Class="detail-icon" />
+                            <div class="detail-text">
+                                <span class="detail-label">Wind</span>
+                                <span class="detail-value">@CurrentWeather.WindSpeed km/h</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Forecast Section -->
+                <div class="forecast-section">
+                    <h3 class="section-title">5-Day Forecast</h3>
+                    @if (ForecastWeather != null)
+                    {
+                        <div class="forecast-cards">
+                            @foreach (var day in ForecastWeather.DailyForecasts)
+                            {
+                                <div class="forecast-card glass-card">
+                                    <span class="forecast-day">@day.Date.ToString("ddd")</span>
+                                    <span class="forecast-emoji">@GetWeatherEmoji(day.Weather)</span>
+                                    <span class="forecast-temp">@day.Temperature</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+        else if (IsLoading)
+        {
+            <div class="loading-container">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="@Size.Large" />
+                <p>Loading weather data...</p>
+            </div>
+        }
+        else if (locationError != null)
+        {
+            <div class="error-container">
+                <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Class="error-icon" />
+                <p>@locationError</p>
+            </div>
+        }
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <p>© @DateTime.Now.Year WeatherWise from WIseWork | Powered by OpenWeather</p>
+    </footer>
+</div>
+
+<style>
+    :root {
+        --primary: #6C63FF;  /* Purple-ish */
+        --primary-light: #8A85FF;
+        --secondary: #FF6584; /* Coral */
+        --accent: #63FFC7;   /* Mint */
+        --dark: #2D3748;
+        --light: #F7FAFC;
+        --glass: rgba(255, 255, 255, 0.25);
+        --glass-border: rgba(255, 255, 255, 0.4);
+        --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        --text-primary: #2D3748;
+        --text-secondary: #4A5568;
+    }
+
+    .app-title {
+     font-size: 1.8rem;
+     font-weight: 700;
+     background: linear-gradient(to right, #FFB347, #FF8C42);
+     -webkit-background-clip: text;
+     background-clip: text;
+     color: transparent;
+     display: inline-flex;
+     align-items: center;
+ }
+/* Sun icon styling */
+.title-icon {
+    font-size: 1.8rem !important;
+    color: #FFB347 !important; /* Sunny orange */
+    margin-right: 10px;
+    vertical-align: middle;
+}
+    /* App Container */
+    .weather-app {
+        min-height: 100vh;
+        font-family: 'Poppins', sans-serif;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        color: var(--text-primary);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow-x: hidden;
+    }
+
+    /* Animated Background */
+    .background-animation {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        overflow: hidden;
+    }
+
+    .particle {
+        position: absolute;
+        border-radius: 50%;
+        animation: float 15s infinite linear;
+    }
+
+    .particle:nth-child(1) {
+        width: 300px;
+        height: 300px;
+        top: -50px;
+        left: -50px;
+        animation-delay: 0s;
+        background: radial-gradient(circle, rgba(255,179,71,0.3) 0%, rgba(255,179,71,0) 70%);
+    }
+
+    .particle:nth-child(2) {
+        width: 200px;
+        height: 200px;
+        bottom: -30px;
+        right: 20%;
+        animation-delay: 5s;
+        background: radial-gradient(circle, rgba(108,99,255,0.2) 0%, rgba(108,99,255,0) 70%);
+    }
+
+    .particle:nth-child(3) {
+        width: 150px;
+        height: 150px;
+        top: 30%;
+        right: -30px;
+        animation-delay: 8s;
+        background: radial-gradient(circle, rgba(255,101,132,0.2) 0%, rgba(255,101,132,0) 70%);
+    }
+
+    @@keyframes float {
+        0% {
+            transform: translateY(0) rotate(0deg);
+            opacity: 1;
+        }
+        100% {
+            transform: translateY(-1000px) rotate(720deg);
+            opacity: 0;
+        }
+    }
+
+    /* Header Styles */
+    .app-header {
+        padding: 1.5rem 2rem;
+        width: 100%;
+    }
+
+    .header-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .brand-container {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .app-logo {
+        font-size: 2rem !important;
+        color: var(--primary);
+    }
+
+    .app-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        background: linear-gradient(to right, var(--primary), var(--secondary));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .action-buttons {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .sign-in-btn {
+        border-color: var(--primary) !important;
+        color: var(--primary) !important;
+        text-transform: none;
+        font-weight: 500;
+    }
+
+    /* Main Content */
+    .main-content {
+        flex: 1;
+        padding: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+        width: 100%;
+    }
+
+    /* Search Container */
+    .search-container {
+        max-width: 600px;
+        margin: 0 auto 2rem;
+        position: relative;
+    }
+
+    .search-field {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.8) !important;
+        border-radius: 50px !important;
+        box-shadow: 0 4px 20px rgba(108, 99, 255, 0.15) !important;
+    }
+
+    /* Top Cities Styles */
+    .top-cities-container {
+        margin: 0 auto 2rem;
+        max-width: 1200px;
+    }
+
+    .top-cities-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 1rem;
+    }
+
+    .city-card {
+        padding: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        height: 100%;
+        display: flex;
+        background: var(--glass);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 16px;
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--glass-shadow);
+    }
+
+    .city-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+    }
+
+    .city-card-content {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .city-name {
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--text-primary);
+    }
+
+    .city-weather {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .weather-emoji {
+        font-size: 1.8rem;
+    }
+
+    .city-temp {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: var(--text-primary);
+    }
+
+    .loading-cities {
+        grid-column: span 5;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 120px;
+        gap: 0.5rem;
+    }
+
+    /* Current Weather */
+    .current-weather {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    .weather-card {
+        padding: 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        background: linear-gradient(135deg, var(--glass), rgba(255,255,255,0.5)) !important;
+        border-radius: 20px !important;
+    }
+
+    .location-time {
+        text-align: center;
+    }
+
+    .city {
+        font-size: 2rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+    }
+
+    .date {
+        font-size: 1rem;
+        color: var(--text-secondary);
+        opacity: 0.8;
+    }
+
+    .weather-main {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .temperature-display {
+        display: flex;
+        align-items: flex-start;
+    }
+
+    .temp-value {
+        font-size: 5rem;
+        font-weight: 300;
+        line-height: 1;
+    }
+
+    .temp-unit {
+        font-size: 2rem;
+        font-weight: 300;
+        margin-top: 0.5rem;
+    }
+
+    .weather-condition {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .weather-emoji {
+        font-size: 3rem;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+    }
+
+    .weather-desc {
+        font-size: 1.2rem;
+        font-weight: 500;
+        text-transform: capitalize;
+    }
+
+    .weather-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1rem;
+    }
+
+    .detail-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: linear-gradient(to right, rgba(255, 101, 132, 0.1), rgba(99, 255, 199, 0.1)) !important;
+        backdrop-filter: blur(5px);
+        border-radius: 12px;
+    }
+
+    .detail-icon {
+        font-size: 1.5rem !important;
+        color: var(--primary);
+    }
+
+    .detail-text {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .detail-label {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        opacity: 0.8;
+    }
+
+    .detail-value {
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    /* Forecast Section */
+    .forecast-section {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .forecast-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 1rem;
+    }
+
+    .forecast-card {
+        padding: 1.5rem 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        background: linear-gradient(145deg, rgba(255,255,255,0.3), rgba(255,255,255,0.5)) !important;
+        transition: all 0.3s ease;
+    }
+
+    .forecast-card:hover {
+        background: linear-gradient(145deg, rgba(255,255,255,0.4), rgba(255,255,255,0.6)) !important;
+        transform: translateY(-3px) scale(1.02);
+    }
+
+    .forecast-day {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .forecast-emoji {
+        font-size: 2rem;
+    }
+
+    .forecast-temp {
+        font-size: 1.2rem;
+        font-weight: 500;
+    }
+
+    /* Loading and Error States */
+    .loading-container, .error-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        padding: 3rem;
+        text-align: center;
+    }
+
+    .error-icon {
+        font-size: 3rem !important;
+        color: #e63946 !important;
+    }
+
+    /* Footer */
+    .app-footer {
+        text-align: center;
+        padding: 1.5rem;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        opacity: 0.8;
+    }
+
+    /* Responsive Adjustments */
+    @@media (max-width: 1024px) {
+        .top-cities-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .weather-main {
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .weather-details {
+            grid-template-columns: 1fr 1fr;
+        }
+        
+        .forecast-cards {
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        }
+    }
+
+    @@media (max-width: 640px) {
+        .top-cities-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .header-content {
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .weather-details {
+            grid-template-columns: 1fr;
+        }
+        
+        .forecast-cards {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @@media (max-width: 400px) {
+        .top-cities-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+@code {
+    private string searchQuery = "";
+    private WeatherData CurrentWeather { get; set; }
+    private ForecastData ForecastWeather { get; set; }
+    private List<WeatherData> TopCitiesWeather { get; set; }
+    private bool IsLoading = false;
+    private bool IsLoadingCities = false;
+    private string? locationError = null;
+    private int searchCount = 0;
+    private const int MaxGuestSearches = 3;
+    private int guestSearchCount = 0;
+    private bool isSearchLimitReached = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGuestSearchCount();
+        await GetCurrentLocationWeather();
+        await LoadTopCitiesWeather();
+    }
+
+    private async Task LoadTopCitiesWeather()
+    {
+        IsLoadingCities = true;
+        try
+        {
+            var topCities = new List<string> { "London", "New York", "Tokyo", "Paris", "Dubai" };
+            var weatherTasks = topCities.Select(city => WeatherService.GetCurrentWeatherAsync(city));
+            var results = await Task.WhenAll(weatherTasks);
+            
+            TopCitiesWeather = results.Where(weather => weather != null).ToList();
+        }
+        catch
+        {
+            // Silently fail - this is a non-critical feature
+        }
+        finally
+        {
+            IsLoadingCities = false;
+        }
+    }
+    private async Task LoadGuestSearchCount()
+{
+    try
+    {
+        guestSearchCount = await LocalStorage.GetItemAsync<int>("guestSearchCount");
+        isSearchLimitReached = guestSearchCount >= MaxGuestSearches;
+    }
+    catch
+    {
+        // If there's an error reading from storage, start fresh
+        guestSearchCount = 0;
+        isSearchLimitReached = false;
+    }
+}
+
+private async Task SaveGuestSearchCount()
+{
+    try
+    {
+        await LocalStorage.SetItemAsync("guestSearchCount", guestSearchCount);
+    }
+    catch (Exception ex)
+    {
+        Snackbar.Add($"Error saving search count: {ex.Message}", Severity.Error);
+    }
+}
+
+   private async Task LoadCityWeather(string cityName)
+{
+    // Check search limit
+    if (isSearchLimitReached)
+    {
+        Snackbar.Add("Guest users are limited to 3 searches. Please sign in for unlimited searches.", Severity.Warning);
+        return;
+    }
+
+    searchQuery = cityName;
+    await SearchCity();
+}
+
+    private void NavigateToLogin()
+    {
+        NavigationManager.NavigateTo("/login");
+    }
+
+    private void HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            SearchCity();
+        }
+    }
+
+    private async Task GetCurrentLocationWeather()
+    {
+        try
+        {
+            IsLoading = true;
+            locationError = null;
+            StateHasChanged();
+
+            var location = await JSRuntime.InvokeAsync<GeoLocation>("getCurrentLocation");
+            if (location == null)
+            {
+                locationError = "Unable to retrieve your location. Please enable location services.";
+                return;
+            }
+
+            CurrentWeather = await WeatherService.GetWeatherByCoordinatesAsync(location.Latitude, location.Longitude);
+            if (CurrentWeather == null)
+            {
+                locationError = "Could not fetch weather data for your location.";
+            }
+            else
+            {
+                await GetWeatherForecast();
+            }
+        }
+        catch (Exception ex)
+        {
+            locationError = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task GetWeatherForecast()
+    {
+        try
+        {
+            var simpleForecasts = await WeatherService.GetWeatherForecastAsync(CurrentWeather.City);
+            if (simpleForecasts != null)
+            {
+                ForecastWeather = new ForecastData
+                {
+                    City = CurrentWeather.City,
+                    DailyForecasts = simpleForecasts.Select(f => new DailyForecast
+                    {
+                        Date = DateTime.Parse(f.Date),
+                        Temperature = f.Temperature,
+                        Weather = f.Weather
+                    }).ToList()
+                };
+            }
+            else
+            {
+                locationError = "Failed to load forecast.";
+            }
+        }
+        catch (Exception ex)
+        {
+            locationError = $"Failed to load forecast: {ex.Message}";
+        }
+    }
+
+   private async Task SearchCity()
+{
+    if (string.IsNullOrWhiteSpace(searchQuery))
+        return;
+
+    // Check search limit
+    if (isSearchLimitReached)
+    {
+        Snackbar.Add("Guest users are limited to 3 searches. Please sign in for unlimited searches.", Severity.Warning);
+        return;
+    }
+
+    IsLoading = true;
+    locationError = null;
+    StateHasChanged();
+
+    try
+    {
+        CurrentWeather = await WeatherService.GetCurrentWeatherAsync(searchQuery);
+
+        if (CurrentWeather == null)
+        {
+            locationError = $"No weather data found for '{searchQuery}'.";
+        }
+        else
+        {
+            await GetWeatherForecast();
+            
+            // Increment search count for guests
+            guestSearchCount++;
+            isSearchLimitReached = guestSearchCount >= MaxGuestSearches;
+            await SaveGuestSearchCount();
+
+            // Show warning if guest user is approaching limit
+            if (guestSearchCount == MaxGuestSearches - 1)
+            {
+                Snackbar.Add($"You have 1 search remaining for guest users. Sign in for unlimited searches.", Severity.Info);
+            }
+            else if (isSearchLimitReached)
+            {
+                Snackbar.Add("You've reached the search limit for guest users. Please sign in for unlimited searches.", Severity.Warning);
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        locationError = $"Error: {ex.Message}";
+    }
+    finally
+    {
+        IsLoading = false;
+        StateHasChanged();
+    }
+}
+
+    private string GetWeatherEmoji(string weatherCondition)
+    {
+        if (string.IsNullOrEmpty(weatherCondition))
+            return "🌈";
+
+        weatherCondition = weatherCondition.ToLower();
+
+        return weatherCondition switch
+        {
+            var w when w.Contains("clear") => "☀️",
+            var w when w.Contains("few clouds") => "🌤️",
+            var w when w.Contains("scattered clouds") => "⛅",
+            var w when w.Contains("broken clouds") || w.Contains("clouds") => "☁️",
+            var w when w.Contains("overcast") => "☁️",
+            var w when w.Contains("mist") || w.Contains("fog") => "🌫️",
+            var w when w.Contains("rain") => "🌧️",
+            var w when w.Contains("thunder") => "⚡",
+            var w when w.Contains("snow") => "❄️",
+            _ => "🌈"
+        };
+    }
+}
