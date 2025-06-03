@@ -18,6 +18,8 @@
 
 <MudThemeProvider />
 <MudSnackbarProvider />
+<MudDialogProvider />
+
 
 <div class="weather-app-container @backgroundClass">
     <MudContainer MaxWidth="MaxWidth.Large">
@@ -313,6 +315,9 @@
 </div>
 
 @code {
+    [Inject]
+    private ILogger<Weather> Logger { get; set; }
+    
     private string searchQuery = "";
     private string backgroundClass = "weather-bg-default";
     private WeatherData CurrentLocationWeather { get; set; }
@@ -357,7 +362,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error getting user information: {ex.Message}", Severity.Error);
+            Logger.LogError(ex, "Error getting user information");
         }
     }
 
@@ -370,7 +375,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error loading favorites: {ex.Message}", Severity.Error);
+            Logger.LogError(ex, "Error loading favorites");
         }
     }
 
@@ -399,7 +404,6 @@
         }
         else
         {
-            // Show dialog to get note/message
             var parameters = new DialogParameters { ["CityName"] = cityName };
             var dialog = DialogService.Show<AddFavoriteDialog>("Add to Favorites", parameters);
             var result = await dialog.Result;
@@ -410,12 +414,13 @@
                 var newFavorite = await FavoriteCityService.AddToFavoritesAsync(cityName, userId, note);
                 favoriteCities[cityName] = newFavorite;
                 Snackbar.Add($"{cityName} added to favorites", Severity.Success);
+                // dialog.Close(); // Not needed, dialog is already closed by the dialog component
             }
         }
     }
     catch (Exception ex)
     {
-        Snackbar.Add($"Error updating favorites: {ex.Message}", Severity.Error);
+        Logger.LogError(ex, $"Error updating favorites for city: {cityName}");
     }
     finally
     {
@@ -491,7 +496,8 @@
         }
         catch (Exception ex)
         {
-            locationError = $"An error occurred: {ex.Message}";
+            Logger.LogError(ex, "Error getting current location weather");
+            locationError = "An error occurred while fetching weather data";
         }
         finally
         {
@@ -520,7 +526,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+            Logger.LogError(ex, $"Error searching for city: {searchQuery}");
         }
         finally
         {
@@ -558,7 +564,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error saving search history: {ex.Message}", Severity.Error);
+            Logger.LogError(ex, "Error saving search history");
         }
     }
 
@@ -588,7 +594,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to load forecast: {ex.Message}", Severity.Error);
+            Logger.LogError(ex, $"Failed to load forecast for {cityName}");
         }
         finally
         {

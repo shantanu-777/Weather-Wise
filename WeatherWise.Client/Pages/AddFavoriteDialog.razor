@@ -1,6 +1,5 @@
-using MudBlazor;
+@using MudBlazor
 @inject Blazored.LocalStorage.ILocalStorageService LocalStorage
-
 
 <MudDialog>
     <TitleContent>
@@ -15,7 +14,7 @@ using MudBlazor;
 
     <DialogContent>
         <MudTextField @bind-Value="Note"
-                      Label="Add a note (optional)"
+                      Label="Add a note"
                       Variant="Variant.Outlined"
                       FullWidth="true" />
     </DialogContent>
